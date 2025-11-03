@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Define Docker image names
         PY_IMAGE = 'python:3.11-slim'
         NODE_IMAGE = 'node:18-alpine'
         DOCKER = '/usr/local/bin/docker'
@@ -27,7 +26,7 @@ pipeline {
                       -v "$PWD":/workspace \
                       -w /workspace/smartcalx-service/python_service \
                       ${PY_IMAGE} \
-                      /bin/sh -c "pip install -r requirements.txt && pytest -q"
+                      /bin/sh -c "pip install -r requirements.txt && pytest -q tests/"
                 '''
             }
             post {
@@ -36,14 +35,14 @@ pipeline {
             }
         }
 
-        stage('Run Node tests') {
+        stage('Run Node.js tests') {
             steps {
                 echo "🧪 Running Node.js tests inside container..."
                 sh '''
                     ${DOCKER} run --rm \
                       -e DOCKER_CONFIG=/tmp \
                       -v "$PWD":/workspace \
-                      -w /workspace/smartcalx-service/node_service \
+                      -w /workspace/smartcalx-service/python_service/node_service \
                       ${NODE_IMAGE} \
                       /bin/sh -c "npm install && npm test"
                 '''
@@ -54,21 +53,21 @@ pipeline {
             }
         }
 
-        stage('Build & Run App Container') {
+        stage('Build & Run via Docker Compose') {
             steps {
-                echo "🐳 Building and running app container..."
+                echo "🐳 Building and running full stack using docker-compose..."
                 sh '''
-                    ${DOCKER} build -t smartcalc-app .
-                    ${DOCKER} run -d --name smartcalc-container -p 5000:5000 smartcalc-app
+                    ${DOCKER} compose down || true
+                    ${DOCKER} compose up -d --build
                 '''
             }
         }
 
-        stage('Verify Container Running') {
+        stage('Verify Containers Running') {
             steps {
-                echo "🔍 Checking if container is running..."
+                echo "🔍 Verifying services are up..."
                 sh '''
-                    ${DOCKER} ps | grep smartcalc-container
+                    ${DOCKER} ps
                 '''
             }
         }
@@ -78,15 +77,15 @@ pipeline {
         always {
             echo "🧹 Cleaning up containers..."
             sh '''
-                ${DOCKER} rm -f smartcalc-container || true
+                ${DOCKER} compose down || true
             '''
         }
         success {
-            echo "🎉 Build and test pipeline completed successfully!"
+            echo "🎉 All tests passed and containers built successfully!"
         }
         failure {
             sh "${DOCKER} --version"
-            echo "⚠️ Build failed — check above logs for details."
+            echo "⚠️ Build failed — check the logs above for details."
         }
     }
 }
