@@ -1,7 +1,11 @@
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app import app
+import sys
+import os
 import pytest
+
+# Add the parent folder (python_service) to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from app import app  # ✅ Correct import now works
 
 @pytest.fixture
 def client():
