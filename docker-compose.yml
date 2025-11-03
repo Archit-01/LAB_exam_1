@@ -4,7 +4,7 @@ services:
     build: ./smartcalx-service/python_service
     container_name: python_service
     ports:
-      - "5000:5000"
+      - "5050:5000"
   
   node_service:
     build: ./smartcalx-service/python_service/node_service
