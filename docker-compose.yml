@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk11
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"    # Jenkins web UI
+      - "50000:50000"  # Jenkins agent
+    user: root
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # allow Jenkins to run Docker (use with care)
+    networks:
+      - jenkins-net
+
+volumes:
+  jenkins_home:
+
+networks:
+  jenkins-net:
+    driver: bridge
