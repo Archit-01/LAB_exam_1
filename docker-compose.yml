@@ -1,24 +1,13 @@
 version: '3.8'
 services:
-  jenkins:
-    image: jenkins/jenkins:lts-jdk11
-    container_name: jenkins
-    restart: unless-stopped
+  python_service:
+    build: ./smartcalx-service/python_service
+    container_name: python_service
     ports:
-      - "8080:8080"    # Jenkins web UI
-      - "50000:50000"  # Jenkins agent
-    user: root
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock   # allow Jenkins to run Docker (use with care)
-    networks:
-      - jenkins-net
-
-volumes:
-  jenkins_home:
-
-networks:
-  jenkins-net:
-    driver: bridge
+      - "5000:5000"
+  
+  node_service:
+    build: ./smartcalx-service/python_service/node_service
+    container_name: node_service
+    ports:
+      - "3000:3000"
