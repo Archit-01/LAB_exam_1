@@ -1,61 +1,93 @@
 pipeline {
   agent any
+
   environment {
-    // if you want to run inside docker images, we will pull official images
-    PY_IMAGE = 'python:3.11-slim'
-    NODE_IMAGE = 'node:18-alpine'
+    DOCKER         = "/usr/local/bin/docker"      // Full Docker path on macOS
+    PY_IMAGE       = "python:3.11-slim"
+    NODE_IMAGE     = "node:18-alpine"
+    IMAGE_NAME     = "smartcalc-service"
+    CONTAINER_NAME = "smartcalc-service-container"
   }
+
   stages {
+
     stage('Checkout') {
       steps {
+        echo "📦 Checking out repository..."
         checkout scm
-        echo "Checked out ${env.GIT_COMMIT}"
       }
     }
 
     stage('Run Python tests') {
       steps {
-        script {
-          // Run tests inside a python docker container (requires docker on Jenkins node and socket mounted)
-          sh '''
-            echo "Running Python tests..."
-            docker run --rm -v "$PWD":/workspace -w /workspace/smartcalx-service/python_service ${PY_IMAGE} /bin/sh -c "pip install -r requirements.txt && pytest -q"
-          '''
-        }
+        echo "🐍 Running Python tests inside container..."
+        sh '''
+          ${DOCKER} run --rm \
+            -v "$PWD":/workspace \
+            -w /workspace/smartcalx-service/python_service \
+            ${PY_IMAGE} \
+            /bin/sh -c "pip install -r requirements.txt && pytest -q"
+        '''
       }
       post {
         success {
-          echo "Python tests passed"
+          echo "✅ Python tests passed successfully!"
         }
         failure {
-          echo "Python tests failed"
+          echo "❌ Python tests failed!"
         }
       }
     }
 
     stage('Run Node tests') {
       steps {
-        script {
-          sh '''
-            echo "Running Node tests..."
-            docker run --rm -v "$PWD":/workspace -w /workspace/smartcalx-service/node_service ${NODE_IMAGE} /bin/sh -c "npm ci && npm test --silent"
-          '''
-        }
+        echo "🧩 Running Node.js tests inside container..."
+        sh '''
+          ${DOCKER} run --rm \
+            -v "$PWD":/workspace \
+            -w /workspace/smartcalx-service/node_service \
+            ${NODE_IMAGE} \
+            /bin/sh -c "npm ci && npm test --silent"
+        '''
       }
       post {
         success {
-          echo "Node tests passed"
+          echo "✅ Node.js tests passed successfully!"
         }
         failure {
-          echo "Node tests failed"
+          echo "❌ Node.js tests failed!"
         }
       }
     }
+
+    stage('Build & Run App Container') {
+      steps {
+        echo "🏗️ Building app Docker image..."
+        sh '''
+          ${DOCKER} build -t ${IMAGE_NAME} .
+          ${DOCKER} rm -f ${CONTAINER_NAME} || true
+          ${DOCKER} run -d -p 5050:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}
+        '''
+      }
+    }
+
+    stage('Verify Container Running') {
+      steps {
+        sh '${DOCKER} ps'
+        sh 'curl -s http://localhost:5050 || echo "App not responding yet"'
+      }
+    }
   }
+
   post {
+    success {
+      echo "🎉 All stages completed successfully! Your app and tests ran fine."
+    }
+    failure {
+      echo "⚠️ Build failed — check above logs for details."
+    }
     always {
-      // Print a marker so it's easy to spot results
-      echo "PIPELINE DONE - See above for test pass/fail"
+      sh '${DOCKER} --version || true'
     }
   }
 }
